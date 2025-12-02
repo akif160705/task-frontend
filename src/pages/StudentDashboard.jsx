@@ -4,11 +4,15 @@ import api from "../lib/api";
 export default function StudentDashboard() {
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [submittingId, setSubmittingId] = useState(null);
 
-  const token = localStorage.getItem("auth_token");
+  // this holds which assignment is being submitted
+  const [activeAssignment, setActiveAssignment] = useState(null);
+  const [fileUrl, setFileUrl] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  // Fetch assignments
+  const token = localStorage.getItem("auth");
+
+  // Fetch assignments on load
   useEffect(() => {
     async function load() {
       try {
@@ -17,7 +21,7 @@ export default function StudentDashboard() {
         });
         setAssignments(res.data);
       } catch (err) {
-        console.log("Error fetching assignments", err);
+        console.error("Error fetching assignments:", err);
       } finally {
         setLoading(false);
       }
@@ -26,46 +30,40 @@ export default function StudentDashboard() {
     load();
   }, []);
 
-  // Submit assignment
-  async function handleSubmit(assignmentId) {
-  const fileUrl = prompt("Enter your file URL (ex: Google Drive link)");
-
-  if (!fileUrl) return;
-
-  try {
-    setSubmitting(true);
-
-    const res = await api.post(
-      `/api/assignments/submit/${assignmentId}`,
-      { fileUrl },
-      {
-        headers: { Authorization: `Bearer ${token}` },
-      }
-    );
-
-    alert("Submission successful!");
-    setAssignments((prev) =>
-      prev.map((a) =>
-        a._id === assignmentId ? { ...a, submitted: true } : a
-      )
-    );
-
-  } catch (err) {
-    const msg = err.response?.data?.message;
-
-    if (msg === "You already submitted this assignment") {
-      alert("You already submitted this assignment earlier!");
-    } else if (msg === "Submission deadline has passed") {
-      alert("Deadline already passed!");
-    } else {
-      alert(msg || "Submission failed");
+  // Submit an assignment
+  async function handleSubmit(aid) {
+    if (!fileUrl.trim()) {
+      alert("Please enter a file URL");
+      return;
     }
 
-    console.error(err);
-  } finally {
-    setSubmitting(false);
+    try {
+      setSubmitting(true);
+
+      const res = await api.post(
+        `/api/assignments/submit/${aid}`,
+        { fileUrl },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      alert("Submission successful!");
+
+      // close UI box
+      setActiveAssignment(null);
+      setFileUrl("");
+
+    } catch (err) {
+      const msg = err.response?.data?.message;
+      if (msg === "You already submitted this assignment") {
+        alert("This assignment is already submitted");
+      } else {
+        alert(msg || "Submission failed");
+      }
+      console.error(err);
+    } finally {
+      setSubmitting(false);
+    }
   }
-}
 
   return (
     <div
@@ -97,82 +95,126 @@ export default function StudentDashboard() {
           Student Dashboard
         </h1>
 
-        <p style={{ textAlign: "center", color: "#555", marginBottom: "30px" }}>
-          View and submit your assignments.
-        </p>
-
         {loading ? (
-          <p style={{ textAlign: "center", color: "#777" }}>Loading assignments...</p>
+          <p style={{ textAlign: "center" }}>Loading...</p>
         ) : assignments.length === 0 ? (
-          <p style={{ textAlign: "center", color: "#777" }}>No assignments available.</p>
+          <p style={{ textAlign: "center" }}>No assignments available.</p>
         ) : (
-          <div style={{ display: "grid", gap: "20px" }}>
-            {assignments.map((a) => (
-              <div
-                key={a._id}
+          assignments.map((a) => (
+            <div
+              key={a._id}
+              style={{
+                padding: "20px",
+                border: "1px solid #e5e5e5",
+                background: "#fafafa",
+                borderRadius: "12px",
+                marginBottom: "20px",
+              }}
+            >
+              <h2 style={{ color: "#6B21A8", fontSize: "20px" }}>{a.title}</h2>
+              <p style={{ marginTop: 8 }}>{a.description}</p>
+
+              <p style={{ marginTop: 8, color: "#555" }}>
+                <strong>Due:</strong>{" "}
+                {new Date(a.dueDate).toLocaleDateString()}
+              </p>
+
+              {/* Submit button */}
+              <button
+                onClick={() => setActiveAssignment(a._id)}
                 style={{
-                  padding: "20px",
-                  border: "1px solid #eee",
-                  borderRadius: "12px",
-                  background: "#fafafa",
+                  marginTop: 12,
+                  padding: "10px 16px",
+                  background: "#6B21A8",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  fontWeight: 600,
                 }}
               >
-                <h2
+                Submit Assignment
+              </button>
+
+              {/* Input UI appears when submit clicked */}
+              {activeAssignment === a._id && (
+                <div
                   style={{
-                    fontSize: "20px",
-                    fontWeight: "600",
-                    color: "#6B21A8",
+                    marginTop: 15,
+                    padding: 15,
+                    background: "white",
+                    border: "1px solid #ddd",
+                    borderRadius: 8,
                   }}
                 >
-                  {a.title}
-                </h2>
+                  <input
+                    type="text"
+                    placeholder="Enter file URL"
+                    value={fileUrl}
+                    onChange={(e) => setFileUrl(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: 10,
+                      borderRadius: 8,
+                      border: "1px solid #ccc",
+                      marginBottom: 10,
+                    }}
+                  />
 
-                <p style={{ marginTop: "8px", color: "#444" }}>
-                  {a.description}
-                </p>
+                  <button
+                    onClick={() => handleSubmit(a._id)}
+                    disabled={submitting}
+                    style={{
+                      padding: "10px 16px",
+                      background: submitting ? "#9b5de5" : "#6B21A8",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "8px",
+                      cursor: "pointer",
+                      fontWeight: 600,
+                      width: "100%",
+                    }}
+                  >
+                    {submitting ? "Submitting..." : "Submit"}
+                  </button>
 
-                <p style={{ marginTop: "8px", color: "#777" }}>
-                  <strong>Due:</strong>{" "}
-                  {new Date(a.dueDate).toLocaleDateString()}
-                </p>
-
-                <button
-                  onClick={() => handleSubmit(a._id)}
-                  disabled={submittingId === a._id}
-                  style={{
-                    marginTop: "14px",
-                    padding: "10px 16px",
-                    background:
-                      submittingId === a._id ? "#9b5de5" : "#6B21A8",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "8px",
-                    cursor: "pointer",
-                    fontWeight: "600",
-                  }}
-                >
-                  {submittingId === a._id
-                    ? "Submitting..."
-                    : "Submit Assignment"}
-                </button>
-              </div>
-            ))}
-          </div>
+                  <button
+                    onClick={() => {
+                      setActiveAssignment(null);
+                      setFileUrl("");
+                    }}
+                    style={{
+                      marginTop: 10,
+                      padding: "10px 16px",
+                      background: "#e5e5e5",
+                      border: "none",
+                      borderRadius: 8,
+                      cursor: "pointer",
+                      width: "100%",
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+            </div>
+          ))
         )}
 
-        <div style={{ textAlign: "center", marginTop: "40px" }}>
+        {/* Logout */}
+        <div style={{ marginTop: "40px", textAlign: "center" }}>
           <button
             style={{
               padding: "10px 20px",
               borderRadius: "8px",
-              border: "none",
               background: "#9333EA",
               color: "white",
+              border: "none",
               cursor: "pointer",
               fontWeight: "600",
             }}
             onClick={() => {
-              localStorage.removeItem("auth_token");
+              localStorage.removeItem("auth");
               window.location.href = "/login";
             }}
           >

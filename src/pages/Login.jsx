@@ -10,26 +10,61 @@ export default function Login() {
     role: "student",
   });
 
-  const handleLogin = async (e) => {
+  const [loading, setLoading] = useState(false);
+
+  async function handleLogin(e) {
     e.preventDefault();
+    setLoading(true);
+
     try {
       const res = await api.post("/api/auth/login", data);
 
-      // FIX: store correct key
-      localStorage.setItem("auth_token", res.data.token);
+      // SAVE TOKEN CORRECTLY
+      localStorage.setItem("auth", res.data.token);
 
+      // redirect based on role
       navigate(data.role === "teacher" ? "/teacher" : "/student");
     } catch (err) {
       alert(err.response?.data?.message || "Login failed");
+    } finally {
+      setLoading(false);
     }
-  };
+  }
 
   return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        <h2 style={styles.title}>Welcome Back</h2>
+    <div
+      style={{
+        width: "100%",
+        height: "100vh",
+        background: "#f3e8ff",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "20px",
+      }}
+    >
+      <div
+        style={{
+          width: 350,
+          background: "white",
+          padding: 30,
+          borderRadius: 12,
+          boxShadow: "0 4px 15px rgba(0,0,0,0.1)",
+        }}
+      >
+        <h2
+          style={{
+            textAlign: "center",
+            marginBottom: 20,
+            color: "#6B21A8",
+            fontSize: 28,
+            fontWeight: 700,
+          }}
+        >
+          Login
+        </h2>
 
-        <form onSubmit={handleLogin} style={styles.form}>
+        <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column" }}>
           <input
             type="email"
             placeholder="Email"
@@ -55,11 +90,13 @@ export default function Login() {
             <option value="teacher">Teacher</option>
           </select>
 
-          <button style={styles.btn}>Login</button>
+          <button type="submit" style={styles.btn} disabled={loading}>
+            {loading ? "Checking..." : "Login"}
+          </button>
         </form>
 
-        <p style={{ marginTop: 15, textAlign: "center" }}>
-          No account? <Link to="/register">Register</Link>
+        <p style={{ marginTop: 15, textAlign: "center", color: "#555" }}>
+          Don’t have an account? <Link to="/register">Register</Link>
         </p>
       </div>
     </div>
@@ -67,44 +104,22 @@ export default function Login() {
 }
 
 const styles = {
-  container: {
-    width: "100%",
-    height: "100vh",
-    background: "#f3e8ff",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  card: {
-    width: 350,
-    padding: 25,
-    background: "white",
-    borderRadius: 12,
-    boxShadow: "0 0 10px rgba(0,0,0,0.1)",
-  },
-  title: {
-    fontSize: 28,
-    marginBottom: 20,
-    textAlign: "center",
-    color: "#6B21A8",
-  },
-  form: {
-    display: "flex",
-    flexDirection: "column",
-  },
   input: {
     padding: 12,
-    marginBottom: 12,
     borderRadius: 8,
     border: "1px solid #ccc",
+    marginBottom: 12,
+    fontSize: 15,
   },
   btn: {
     padding: 12,
-    background: "#6B21A8",
-    border: "none",
-    color: "white",
-    fontSize: 16,
     borderRadius: 8,
+    background: "#6B21A8",
+    color: "white",
+    border: "none",
     cursor: "pointer",
+    fontWeight: 600,
+    fontSize: 16,
+    marginTop: 5,
   },
 };
